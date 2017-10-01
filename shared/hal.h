@@ -1,18 +1,18 @@
-#pragma once 
+#pragma once
 #include <stdint.h>
 #include <stdio.h>
 
-#define HAL_CALC_TIME
-#define HAL_COMP_CALC_TIME
+//#define HAL_CALC_TIME
+//#define HAL_COMP_CALC_TIME
 
 
 #define HAL_MAX_PINS 1024
 #define HAL_MAX_COMPS 32
-#define HAL_MAX_CTX 16384
+#define HAL_MAX_CTX 1024
 
-#define HAL_COMP(name) 
-#define HAL_PIN(name) 
-#define HAL_PINA(name, index) 
+#define HAL_COMP(name)
+#define HAL_PIN(name)
+#define HAL_PINA(name, index)
 
 extern uint32_t hal_get_systick_value();
 extern uint32_t hal_get_systick_reload();
@@ -32,7 +32,7 @@ typedef const struct{
    void (*nrt)(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
    void (*rt)(float period, volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
    void (*frt)(float period, volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
-   
+
    void (*nrt_init)(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
    void (*hw_init)(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
    void (*rt_start)(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
@@ -54,11 +54,11 @@ typedef struct hal_comp_inst_t{
    volatile int32_t rt_ticks;
    volatile int32_t frt_ticks;
    volatile int32_t nrt_ticks;
-   
+
    volatile int32_t rt_max_ticks;
    volatile int32_t frt_max_ticks;
    volatile int32_t nrt_max_ticks;
-   
+
    volatile enum {
       PRE_INIT,
       PRE_HW_INIT,
@@ -105,14 +105,14 @@ typedef struct{
      NAN_ERROR,
      HAL_OK2
    } hal_state;
-   
+
    volatile struct hal_comp_inst_t * rt_comps[HAL_MAX_COMPS];
    volatile struct hal_comp_inst_t * frt_comps[HAL_MAX_COMPS];
-   
+
    volatile int32_t active_rt_func;
    volatile int32_t active_frt_func;
    volatile int32_t active_nrt_func;
-   
+
    struct hal_comp_inst_t comp_insts[HAL_MAX_COMPS];
    struct hal_pin_inst_t pin_insts[HAL_MAX_PINS];
    volatile uint8_t ctxs[HAL_MAX_CTX]; // create runtime ctx print in python based on COMP_ctx_t
@@ -121,18 +121,18 @@ typedef struct{
    uint32_t frt_comp_count;
    uint32_t pin_inst_count;
    uint32_t ctx_count;
-   
+
    volatile uint32_t rt_ticks;
    volatile uint32_t frt_ticks;
    volatile uint32_t nrt_ticks;
-   
+
    volatile uint32_t rt_max_ticks;
    volatile uint32_t frt_max_ticks;
    volatile uint32_t nrt_max_ticks;
-   
+
    volatile float rt_period;
    volatile float frt_period;
-   
+
    hal_error_t error_info;
 } hal_t;
 

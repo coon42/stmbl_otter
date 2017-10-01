@@ -1,0 +1,748 @@
+diff --git a/shared/f3hw.h b/shared/f3hw.h
+index 2880420..6b4b189 100644
+--- a/shared/f3hw.h
++++ b/shared/f3hw.h
+@@ -1,27 +1,30 @@
+ //stmbl
+-#define AREF 3.338// analog reference voltage
+-
+-#define VDIVUP 249000.0 * 2.0//HV div pullup R1,R12
+-#define VDIVDOWN 3900.0//HV div pulldown R2,R9
+-
+-#define LED_Pin GPIO_PIN_0
+-#define LED_GPIO_Port GPIOA
+-
+-#define PWM_U TIM8->CCR3
+-#define PWM_V TIM8->CCR2
+-#define PWM_W TIM8->CCR1
+-
+-#define PWM_DEADTIME 0
++// #define AREF 3.338// analog reference voltage
++//
++// #define VDIVUP 249000.0 * 2.0//HV div pullup R1,R12
++// #define VDIVDOWN 3900.0//HV div pulldown R2,R9
++//
++// #define LED_Pin GPIO_PIN_0
++// #define LED_GPIO_Port GPIOA
++//
++// #define PWM_U TIM8->CCR3
++// #define PWM_V TIM8->CCR2
++// #define PWM_W TIM8->CCR1
++//
++// #define PWM_DEADTIME 0
+ //io board
+ //#define USB_CONNECT_PIN GPIO_PIN_15
+ //#define USB_CONNECT_PORT GPIOB
+ 
+-/*
++
+ //otter
+ #define AREF 3.3// analog reference voltage
+ 
+ #define VDIVUP 56000.0//HV div pullup R1,R12
+ #define VDIVDOWN 2000.0//HV div pulldown R2,R9
++#define SHUNT 0.003//shunt
++#define SHUNT_PULLUP 5100.0
++#define SHUNT_SERIE 100.0
+ 
+ #define LED_Pin GPIO_PIN_0
+ #define LED_GPIO_Port GPIOA
+@@ -29,10 +32,9 @@
+ #define PWM_U TIM8->CCR1
+ #define PWM_V TIM8->CCR2
+ #define PWM_W TIM8->CCR3
+- 
++
+ //ottercontrol
+ #define USB_DISCONNECT_PIN GPIO_PIN_13
+ #define USB_DISCONNECT_PORT GPIOC
+ 
+ #define PWM_DEADTIME 50
+-*/
+diff --git a/shared/hal.h b/shared/hal.h
+index ed3e15b..1c2e95d 100644
+--- a/shared/hal.h
++++ b/shared/hal.h
+@@ -1,18 +1,18 @@
+-#pragma once 
++#pragma once
+ #include <stdint.h>
+ #include <stdio.h>
+ 
+-#define HAL_CALC_TIME
+-#define HAL_COMP_CALC_TIME
++//#define HAL_CALC_TIME
++//#define HAL_COMP_CALC_TIME
+ 
+ 
+ #define HAL_MAX_PINS 1024
+ #define HAL_MAX_COMPS 32
+-#define HAL_MAX_CTX 16384
++#define HAL_MAX_CTX 1024
+ 
+-#define HAL_COMP(name) 
+-#define HAL_PIN(name) 
+-#define HAL_PINA(name, index) 
++#define HAL_COMP(name)
++#define HAL_PIN(name)
++#define HAL_PINA(name, index)
+ 
+ extern uint32_t hal_get_systick_value();
+ extern uint32_t hal_get_systick_reload();
+@@ -32,7 +32,7 @@ typedef const struct{
+    void (*nrt)(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
+    void (*rt)(float period, volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
+    void (*frt)(float period, volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
+-   
++
+    void (*nrt_init)(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
+    void (*hw_init)(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
+    void (*rt_start)(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr);
+@@ -54,11 +54,11 @@ typedef struct hal_comp_inst_t{
+    volatile int32_t rt_ticks;
+    volatile int32_t frt_ticks;
+    volatile int32_t nrt_ticks;
+-   
++
+    volatile int32_t rt_max_ticks;
+    volatile int32_t frt_max_ticks;
+    volatile int32_t nrt_max_ticks;
+-   
++
+    volatile enum {
+       PRE_INIT,
+       PRE_HW_INIT,
+@@ -105,14 +105,14 @@ typedef struct{
+      NAN_ERROR,
+      HAL_OK2
+    } hal_state;
+-   
++
+    volatile struct hal_comp_inst_t * rt_comps[HAL_MAX_COMPS];
+    volatile struct hal_comp_inst_t * frt_comps[HAL_MAX_COMPS];
+-   
++
+    volatile int32_t active_rt_func;
+    volatile int32_t active_frt_func;
+    volatile int32_t active_nrt_func;
+-   
++
+    struct hal_comp_inst_t comp_insts[HAL_MAX_COMPS];
+    struct hal_pin_inst_t pin_insts[HAL_MAX_PINS];
+    volatile uint8_t ctxs[HAL_MAX_CTX]; // create runtime ctx print in python based on COMP_ctx_t
+@@ -121,18 +121,18 @@ typedef struct{
+    uint32_t frt_comp_count;
+    uint32_t pin_inst_count;
+    uint32_t ctx_count;
+-   
++
+    volatile uint32_t rt_ticks;
+    volatile uint32_t frt_ticks;
+    volatile uint32_t nrt_ticks;
+-   
++
+    volatile uint32_t rt_max_ticks;
+    volatile uint32_t frt_max_ticks;
+    volatile uint32_t nrt_max_ticks;
+-   
++
+    volatile float rt_period;
+    volatile float frt_period;
+-   
++
+    hal_error_t error_info;
+ } hal_t;
+ 
+diff --git a/stm32f303/Makefile b/stm32f303/Makefile
+index 023f28d..5c05686 100644
+--- a/stm32f303/Makefile
++++ b/stm32f303/Makefile
+@@ -41,6 +41,7 @@ COMPS += shared/comps/curpid.c
+ COMPS += shared/comps/svm.c
+ COMPS += shared/comps/dq.c
+ COMPS += shared/comps/idq.c
++COMPS += shared/comps/uvw.c
+ # COMPS += shared/comps/rev.c
+ # COMPS += shared/comps/vel.c
+ # COMPS += shared/comps/hal_test.c
+@@ -119,7 +120,7 @@ CPPFLAGS += $(addprefix -I,$(INCDIRS))
+ #  -g             generate debugging information
+ #  -save-temps    preserve .s and .i-files
+ #
+-#CPPFLAGS += 
++#CPPFLAGS +=
+ # CPPFLAGS += -g
+ # CPPFLAGS += -save-temps=obj
+ 
+diff --git a/stm32f303/src/comps/hv.c b/stm32f303/src/comps/hv.c
+index f289a60..bd2184e 100644
+--- a/stm32f303/src/comps/hv.c
++++ b/stm32f303/src/comps/hv.c
+@@ -38,7 +38,7 @@ static void nrt_init(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr)
+   PIN(enw) = 1.0;
+   PIN(min_on) = 0.00000035;
+   PIN(min_off) = 0.000005;
+-  
++
+   GPIO_InitTypeDef GPIO_InitStruct;
+   //PA15 HV EN
+   GPIO_InitStruct.Pin = GPIO_PIN_15;
+@@ -52,7 +52,7 @@ static void nrt_init(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr)
+   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+   GPIO_InitStruct.Pull = GPIO_NOPULL;
+   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+-  
++
+ }
+ 
+ static void rt_func(float period, volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr){
+@@ -67,23 +67,23 @@ static void rt_func(float period, volatile void * ctx_ptr, volatile hal_pin_inst
+   //convert on and off times to PWM output compare values
+   int32_t min_on = (int32_t)(4800.0 * 15000.0 * PIN(min_on) + 0.5);
+   int32_t min_off = (int32_t)(4800.0 * 15000.0 * PIN(min_off) + 0.5);
+-   
++
+   if((u > 0 && u < min_on) || (v > 0 && v < min_on) || (w > 0 && w < min_on)){
+     u += min_on;
+     v += min_on;
+     w += min_on;
+   }
+-   
++
+   if((u > 4800 - min_off) || (v > 4800 - min_off) || (w > 4800 - min_off)){
+     u -= min_off;
+     v -= min_off;
+     w -= min_off;
+   }
+-   
+-  PWM_U = CLAMP(u, 0, 4800 - min_off);
+-  PWM_V = CLAMP(v, 0, 4800 - min_off);
+-  PWM_W = CLAMP(w, 0, 4800 - min_off);
+-   
++
++  PWM_U = 4800-CLAMP(u, 0, 4800 - min_off);
++  PWM_V = 4800-CLAMP(v, 0, 4800 - min_off);
++  PWM_W = 4800-CLAMP(w, 0, 4800 - min_off);
++
+   if(PIN(hv_temp) < 85.0){
+     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, PIN(en) > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+   }
+diff --git a/stm32f303/src/comps/io.c b/stm32f303/src/comps/io.c
+index b041c72..f25eb0f 100644
+--- a/stm32f303/src/comps/io.c
++++ b/stm32f303/src/comps/io.c
+@@ -18,8 +18,14 @@ HAL_PIN(u);
+ HAL_PIN(v);
+ HAL_PIN(w);
+ HAL_PIN(udc);
++HAL_PIN(udc_pwm);
++
++HAL_PIN(in0);
++HAL_PIN(in1);
++HAL_PIN(in2);
+ 
+ HAL_PIN(hv_temp);
++HAL_PIN(temp_v);
+ HAL_PIN(mot_temp);
+ 
+ uint32_t adc_12_buf[10];
+@@ -35,7 +41,7 @@ struct io_ctx_t{
+ #define ADC(a) ((a) / ARES * AREF)
+ 
+ #define HV_TEMP_PULLUP 10000
+-#define HV_R(a) (HV_TEMP_PULLUP / (AREF / (a) - 1)) 
++#define HV_R(a) (HV_TEMP_PULLUP / (AREF / (a) - 1))
+ 
+ #define MOT_TEMP_PULLUP 10000
+ #define MOT_TEMP_PULLMID 51000
+@@ -49,9 +55,6 @@ struct io_ctx_t{
+ #define VOLT(a) ((a) / (ARES) * (AREF) / (VDIVDOWN) * ((VDIVUP) + (VDIVDOWN)))
+ //#define TEMP(a) (log10f((a) * (AREF) / (ARES) * (TPULLUP) / ((AREF) - (a) * (AREF) / (ARES))) * (-53.0) + 290.0)
+ 
+-#define SHUNT 0.003//shunt
+-#define SHUNT_PULLUP 15000.0
+-#define SHUNT_SERIE 470.0
+ #define SHUNT_GAIN 16.0
+ 
+ #define AMP(a, gain) (((a) * AREF / ARES / (gain) - AREF / (SHUNT_PULLUP + SHUNT_SERIE) * SHUNT_SERIE) / (SHUNT * SHUNT_PULLUP) * (SHUNT_PULLUP + SHUNT_SERIE))
+@@ -84,7 +87,18 @@ static void nrt_init(volatile void * ctx_ptr, volatile hal_pin_inst_t * pin_ptr)
+   GPIO_InitStruct.Pull = GPIO_NOPULL;
+   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+-  
++
++  /**TIM1 GPIO Configuration
++  PA8     ------> IN0
++  PA9     ------> IN1
++  PA10    ------> IN2
++  */
++  GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10;
++  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
++  GPIO_InitStruct.Pull = GPIO_PULLUP;
++  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
++  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
++
+   DMA1_Channel1->CCR &= (uint16_t)(~DMA_CCR_EN);
+   DMA1_Channel1->CPAR = (uint32_t)&(ADC12_COMMON->CDR);
+   DMA1_Channel1->CMAR = (uint32_t)adc_12_buf;
+@@ -112,19 +126,19 @@ static void rt_func(float period, volatile void * ctx_ptr, volatile hal_pin_inst
+ 
+   while(!(DMA1->ISR & DMA_ISR_TCIF1)){}
+   while(!(DMA2->ISR & DMA_ISR_TCIF5)){}
+-  
++
+   DMA1->IFCR = DMA_IFCR_CTCIF1;
+   DMA2->IFCR = DMA_IFCR_CTCIF5;
+ 
+   uint32_t a12 = adc_12_buf[0] + adc_12_buf[1] + adc_12_buf[2] + adc_12_buf[3] + adc_12_buf[4];
+   uint32_t a34 = adc_34_buf[0] + adc_34_buf[1] + adc_34_buf[2] + adc_34_buf[3] + adc_34_buf[4];
+-  
++
+   if(ctx->u_offset == 0){
+     ctx->w_offset = AMP((float)(a12 & 0xFFFF) / 5.0, SHUNT_GAIN);
+     ctx->u_offset = AMP((float)(a12 >> 16) / 5.0, SHUNT_GAIN);
+     ctx->v_offset = AMP((float)(a34 & 0xFFFF) / 5.0, SHUNT_GAIN);
+   }
+-  
++
+   PIN(iw) = -AMP((float)(a12 & 0xFFFF) / 5.0, SHUNT_GAIN) + ctx->w_offset; // 1u
+   PIN(iu) = -AMP((float)(a12 >> 16) / 5.0, SHUNT_GAIN) + ctx->u_offset;
+   PIN(iv) = -AMP((float)(a34 & 0xFFFF) / 5.0, SHUNT_GAIN) + ctx->v_offset;
+@@ -132,10 +146,16 @@ static void rt_func(float period, volatile void * ctx_ptr, volatile hal_pin_inst
+   PIN(v) = VOLT(adc_12_buf[5] >> 16) * 0.05 + PIN(v) * 0.95;
+   PIN(u) = VOLT(adc_34_buf[5] & 0xFFFF) * 0.05 + PIN(u) * 0.95;
+   PIN(udc) = VOLT(adc_34_buf[5] >> 16) * 0.05 + PIN(udc) * 0.95;
+-  
+-  PIN(hv_temp) = r2temp(HV_R(ADC(adc_34_buf[0] >> 16))) * 0.01 + PIN(hv_temp) * 0.99; // 5.5u
+-  PIN(mot_temp) = MOT_R(MOT_REF(ADC(adc_34_buf[5] >> 16))); // 1.4u
++  PIN(udc_pwm) = PIN(udc) / 2.0;
++
++  PIN(temp_v) = ADC(adc_34_buf[4] >> 16);
++  PIN(hv_temp) = r2temp(HV_R(ADC(adc_34_buf[4] >> 16))) * 0.01 + PIN(hv_temp) * 0.99; // 5.5u
++  PIN(mot_temp) = MOT_R(MOT_REF(ADC(adc_34_buf[0] >> 16))); // 1.4u
+   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, PIN(led) > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET); // 0.1u
++
++  PIN(in0) = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_8);
++  PIN(in1) = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_9);
++  PIN(in2) = HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_10);
+ }
+ 
+ hal_comp_t io_comp_struct = {
+diff --git a/stm32f303/src/main.c b/stm32f303/src/main.c
+index f510939..fa2c09b 100644
+--- a/stm32f303/src/main.c
++++ b/stm32f303/src/main.c
+@@ -4,37 +4,37 @@
+   * Description        : Main program body
+   ******************************************************************************
+   *
+-  * Copyright (c) 2016 STMicroelectronics International N.V. 
++  * Copyright (c) 2016 STMicroelectronics International N.V.
+   * All rights reserved.
+   *
+-  * Redistribution and use in source and binary forms, with or without 
++  * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted, provided that the following conditions are met:
+   *
+-  * 1. Redistribution of source code must retain the above copyright notice, 
++  * 1. Redistribution of source code must retain the above copyright notice,
+   *    this list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the documentation
+   *    and/or other materials provided with the distribution.
+-  * 3. Neither the name of STMicroelectronics nor the names of other 
+-  *    contributors to this software may be used to endorse or promote products 
++  * 3. Neither the name of STMicroelectronics nor the names of other
++  *    contributors to this software may be used to endorse or promote products
+   *    derived from this software without specific written permission.
+-  * 4. This software, including modifications and/or derivative works of this 
++  * 4. This software, including modifications and/or derivative works of this
+   *    software, must execute solely and exclusively on microcontroller or
+   *    microprocessor devices manufactured by or for STMicroelectronics.
+-  * 5. Redistribution and use of this software other than as permitted under 
+-  *    this license is void and will automatically terminate your rights under 
+-  *    this license. 
++  * 5. Redistribution and use of this software other than as permitted under
++  *    this license is void and will automatically terminate your rights under
++  *    this license.
+   *
+-  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
+-  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
+-  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
++  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS"
++  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT
++  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
+-  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
++  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT
+   * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+   * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+-  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
+-  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
+-  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
++  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
++  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+   * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *
+@@ -103,14 +103,14 @@ void Error_Handler(void);
+ 
+ 
+ void TIM8_UP_IRQHandler(){
+-   GPIOA->BSRR |= GPIO_PIN_9;
++   //GPIOB->BSRR |= GPIO_PIN_10;
+    __HAL_TIM_CLEAR_IT(&htim8, TIM_IT_UPDATE);
+    hal_run_rt();
+    if(__HAL_TIM_GET_FLAG(&htim8, TIM_IT_UPDATE) == SET){
+       hal_stop();
+       hal.hal_state = RT_TOO_LONG;
+    }
+-   GPIOA->BSRR |= GPIO_PIN_9 << 16;
++   //GPIOB->BSRR |= GPIO_PIN_10 << 16;
+ }
+ 
+ void bootloader(char * ptr){
+@@ -149,7 +149,7 @@ int main(void)
+   __HAL_RCC_GPIOB_CLK_ENABLE();
+   __HAL_RCC_GPIOC_CLK_ENABLE();
+   __HAL_RCC_GPIOF_CLK_ENABLE();
+-  
++
+   GPIO_InitTypeDef GPIO_InitStruct;
+ 
+   #ifdef USB_DISCONNECT_PIN
+@@ -160,7 +160,7 @@ int main(void)
+     HAL_GPIO_Init(USB_DISCONNECT_PORT, &GPIO_InitStruct);
+     HAL_GPIO_WritePin(USB_DISCONNECT_PORT, USB_DISCONNECT_PIN, GPIO_PIN_RESET);
+   #endif
+-  
++
+   MX_TIM8_Init();
+   MX_ADC1_Init();
+   MX_ADC2_Init();
+@@ -172,7 +172,7 @@ int main(void)
+   MX_OPAMP3_Init();
+   // MX_USART1_UART_Init();
+   MX_USB_DEVICE_Init();
+-  
++
+ #ifdef USB_CONNECT_PIN
+   GPIO_InitStruct.Pin = USB_CONNECT_PIN;
+   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+@@ -195,27 +195,27 @@ int main(void)
+   HAL_OPAMP_SelfCalibrate(&hopamp1);
+   HAL_OPAMP_SelfCalibrate(&hopamp2);
+   HAL_OPAMP_SelfCalibrate(&hopamp3);
+-  
++
+   hcrc.Instance = CRC;
+   hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
+   hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
+   hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
+   hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
+   hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_WORDS;
+-  
++
+   __HAL_RCC_CRC_CLK_ENABLE();
+-  
++
+   if (HAL_CRC_Init(&hcrc) != HAL_OK)
+   {
+     Error_Handler();
+   }
+-  
++
+   //IO pins
+-  GPIO_InitStruct.Pin = GPIO_PIN_9 | GPIO_PIN_10;
++  /*GPIO_InitStruct.Pin = GPIO_PIN_9 | GPIO_PIN_10;
+   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+   GPIO_InitStruct.Pull = GPIO_NOPULL;
+   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
++  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);*/
+ 
+      if (HAL_OPAMP_Start(&hopamp1) != HAL_OK){
+        Error_Handler();
+@@ -230,15 +230,15 @@ int main(void)
+   htim8.Instance->CCR1 = 0;
+   htim8.Instance->CCR2 = 0;
+   htim8.Instance->CCR3 = 0;
+-  
++
+   HAL_ADC_Start(&hadc1);
+   HAL_ADC_Start(&hadc2);
+   HAL_ADC_Start(&hadc3);
+   HAL_ADC_Start(&hadc4);
++
+   if (HAL_TIM_Base_Start_IT(&htim8) != HAL_OK){
+  	Error_Handler();
+   }
+-  TIM8->RCR = 1;//uptate event foo
+   if (HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1) != HAL_OK){
+ 	Error_Handler();
+   }
+@@ -257,28 +257,38 @@ int main(void)
+   if (HAL_TIMEx_PWMN_Start(&htim8, TIM_CHANNEL_3) != HAL_OK){
+   	Error_Handler();
+   }
++  //TIM8->RCR = 1;//uptate event foo
++  //GPIO_InitTypeDef GPIO_InitStruct;
++  //PB10 messpin
++  /*GPIO_InitStruct.Pin = GPIO_PIN_10;
++  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
++  GPIO_InitStruct.Pull = GPIO_NOPULL;
++  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
++  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);*/
+ 
+   hal_init(1.0 / 15000.0, 0.0);
+   // hal load comps
+   load_comp(comp_by_name("term"));
+   // load_comp(comp_by_name("sim"));
+   load_comp(comp_by_name("io"));
+-  load_comp(comp_by_name("ls"));
++  //load_comp(comp_by_name("ls"));
+   load_comp(comp_by_name("dq"));
+   load_comp(comp_by_name("idq"));
+   load_comp(comp_by_name("svm"));
+   load_comp(comp_by_name("hv"));
++  load_comp(comp_by_name("uvw"));
+   load_comp(comp_by_name("curpid"));
+-  
++
+   hal_parse("term0.rt_prio = 0.1");
+   hal_parse("ls0.rt_prio = 0.6");
+   hal_parse("io0.rt_prio = 1.0");
++  hal_parse("uvw0.rt_prio = 1.5");
+   hal_parse("dq0.rt_prio = 2.0");
+   hal_parse("curpid0.rt_prio = 3.0");
+   hal_parse("idq0.rt_prio = 4.0");
+   hal_parse("svm0.rt_prio = 5.0");
+   hal_parse("hv0.rt_prio = 6.0");
+-  
++
+   hal_parse("term0.send_step = 100.0");
+   hal_parse("term0.gain0 = 10.0");
+   hal_parse("term0.gain1 = 10.0");
+@@ -299,22 +309,22 @@ int main(void)
+   hal_parse("idq0.pos = ls0.pos");
+   hal_parse("dq0.pos = ls0.pos");
+   hal_parse("hv0.en = ls0.en");
+-  
++
+   //ADC TEST
+   hal_parse("term0.wave3 = io0.udc");
+   hal_parse("hv0.udc = io0.udc");
+   hal_parse("dq0.u = io0.iu");
+-  hal_parse("dq0.v = io0.iv");
+-  hal_parse("dq0.w = io0.iw");
+-  
++  hal_parse("dq0.v = io0.iw");
++  hal_parse("dq0.w = io0.iv");
++
+   // hal_parse("sim0.vel", "idq0.pos");
+   // hal_parse("sim0.vel", "dq0.pos");
+-  
++
+   hal_parse("svm0.u = idq0.u");
+   hal_parse("svm0.v = idq0.v");
+   hal_parse("svm0.w = idq0.w");
+   hal_parse("hv0.u = svm0.su");
+-  
++
+   hal_parse("hv0.v = svm0.sv");
+   hal_parse("hv0.w = svm0.sw");
+   hal_parse("svm0.udc = io0.udc");
+@@ -342,15 +352,22 @@ int main(void)
+   hal_parse("curpid0.ki = ls0.cur_i");
+   hal_parse("curpid0.ff = ls0.cur_ff");
+   hal_parse("curpid0.kind = ls0.cur_ind");
+-  hal_parse("curpid0.max_cur = ls0.max_cur");
+-  hal_parse("curpid0.pwm_volt = ls0.pwm_volt");
++  hal_parse("curpid0.max_cur = 30");
+   hal_parse("curpid0.vel = ls0.vel");
+ 
+-  // hal parse config
+-  // hal_init_nrt();
+-  // error foo
++  hal_parse("uvw0.u = io0.in0");
++  hal_parse("uvw0.v = io0.in1");
++  hal_parse("uvw0.w = io0.in2");
++  hal_parse("dq0.polecount = 1");
++  hal_parse("idq0.polecount = 1");
++  hal_parse("idq0.pos = uvw0.pos");
++  hal_parse("dq0.pos = uvw0.pos");
++  hal_parse("svm0.mode = 1");
++  hal_parse("curpid0.pwm_volt = io0.udc_pwm");
++  hal_parse("curpid0.kp = 0.02");
++  hal_parse("curpid0.ki = 0.005");
+   hal_start();
+-  
++
+   while (1)
+   {
+      hal_run_nrt();
+@@ -369,7 +386,7 @@ void SystemClock_Config(void)
+   RCC_ClkInitTypeDef RCC_ClkInitStruct;
+   RCC_PeriphCLKInitTypeDef PeriphClkInit;
+ 
+-    /**Initializes the CPU, AHB and APB busses clocks 
++    /**Initializes the CPU, AHB and APB busses clocks
+     */
+   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+@@ -384,7 +401,7 @@ void SystemClock_Config(void)
+     Error_Handler();
+   }
+ 
+-    /**Initializes the CPU, AHB and APB busses clocks 
++    /**Initializes the CPU, AHB and APB busses clocks
+     */
+   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+@@ -413,11 +430,11 @@ void SystemClock_Config(void)
+     Error_Handler();
+   }
+ 
+-    /**Configure the Systick interrupt time 
++    /**Configure the Systick interrupt time
+     */
+   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
+ 
+-    /**Configure the Systick 
++    /**Configure the Systick
+     */
+   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
+ 
+@@ -443,11 +460,11 @@ void Error_Handler(void)
+ {
+   /* USER CODE BEGIN Error_Handler */
+   /* User can add his own implementation to report the HAL error return state */
+-  while(1) 
++  while(1)
+   {
+ 	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+   }
+-  /* USER CODE END Error_Handler */ 
++  /* USER CODE END Error_Handler */
+ }
+ 
+ #ifdef USE_FULL_ASSERT
+@@ -472,10 +489,10 @@ void assert_failed(uint8_t* file, uint32_t line)
+ 
+ /**
+   * @}
+-  */ 
++  */
+ 
+ /**
+   * @}
+-*/ 
++*/
+ 
+ /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+diff --git a/stm32f303/src/tim.c b/stm32f303/src/tim.c
+index 86daf51..a19088c 100644
+--- a/stm32f303/src/tim.c
++++ b/stm32f303/src/tim.c
+@@ -5,37 +5,37 @@
+   *                      of the TIM instances.
+   ******************************************************************************
+   *
+-  * Copyright (c) 2016 STMicroelectronics International N.V. 
++  * Copyright (c) 2016 STMicroelectronics International N.V.
+   * All rights reserved.
+   *
+-  * Redistribution and use in source and binary forms, with or without 
++  * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted, provided that the following conditions are met:
+   *
+-  * 1. Redistribution of source code must retain the above copyright notice, 
++  * 1. Redistribution of source code must retain the above copyright notice,
+   *    this list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the documentation
+   *    and/or other materials provided with the distribution.
+-  * 3. Neither the name of STMicroelectronics nor the names of other 
+-  *    contributors to this software may be used to endorse or promote products 
++  * 3. Neither the name of STMicroelectronics nor the names of other
++  *    contributors to this software may be used to endorse or promote products
+   *    derived from this software without specific written permission.
+-  * 4. This software, including modifications and/or derivative works of this 
++  * 4. This software, including modifications and/or derivative works of this
+   *    software, must execute solely and exclusively on microcontroller or
+   *    microprocessor devices manufactured by or for STMicroelectronics.
+-  * 5. Redistribution and use of this software other than as permitted under 
+-  *    this license is void and will automatically terminate your rights under 
+-  *    this license. 
++  * 5. Redistribution and use of this software other than as permitted under
++  *    this license is void and will automatically terminate your rights under
++  *    this license.
+   *
+-  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
+-  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
+-  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
++  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS"
++  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT
++  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
+-  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
++  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT
+   * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+   * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+-  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
+-  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
+-  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
++  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
++  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+   * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *
+@@ -65,7 +65,7 @@ void MX_TIM8_Init(void)
+   htim8.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED3;
+   htim8.Init.Period = 4800;
+   htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+-  htim8.Init.RepetitionCounter = 0;
++  htim8.Init.RepetitionCounter = 1;
+   if (HAL_TIM_Base_Init(&htim8) != HAL_OK)
+   {
+     Error_Handler();
+@@ -158,14 +158,14 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* timHandle)
+   /* USER CODE BEGIN TIM8_MspPostInit 0 */
+ 
+   /* USER CODE END TIM8_MspPostInit 0 */
+-  
+-    /**TIM8 GPIO Configuration    
++
++    /**TIM8 GPIO Configuration
+     PB3     ------> TIM8_CH1N
+     PB4     ------> TIM8_CH2N
+     PB5     ------> TIM8_CH3N
+     PB6     ------> TIM8_CH1
+     PB8     ------> TIM8_CH2
+-    PB9     ------> TIM8_CH3 
++    PB9     ------> TIM8_CH3
+     */
+     GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_4;
+     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+@@ -216,7 +216,7 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
+   /* USER CODE BEGIN TIM8_MspDeInit 1 */
+ 
+   /* USER CODE END TIM8_MspDeInit 1 */
+-} 
++}
+ 
+ /* USER CODE BEGIN 1 */
+ 
+diff --git a/toolchain.mak b/toolchain.mak
+index e0c4504..ba0f8f1 100644
+--- a/toolchain.mak
++++ b/toolchain.mak
+@@ -1,5 +1,5 @@
+ # Define programs and commands for the toolchain
+-TOOLCHAIN = arm-none-eabi-
++TOOLCHAIN = /home/niklas/gcc-arm-none-eabi-5_4-2016q3/bin/arm-none-eabi-
+ CC       = $(TOOLCHAIN)gcc
+ OBJCOPY  = $(TOOLCHAIN)objcopy
+ OBJDUMP  = $(TOOLCHAIN)objdump

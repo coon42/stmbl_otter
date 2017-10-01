@@ -74,17 +74,17 @@ static void rt_func(float period, volatile void * ctx_ptr, volatile hal_pin_inst
    float kid = rd * PIN(ki) / ld;
    float kpq = lq * PIN(kp) / period / 2.0;
    float kiq = rq * PIN(ki) / lq;
-   
+
    //TODO curpid: sqrt(di^2+qi^2) auf max_ac_cur clampen
-   float max_cur = MIN(PIN(max_cur), 28.0);
+   float max_cur = PIN(max_cur);
    float idc = LIMIT(PIN(id_cmd), max_cur);
    float iqc = LIMIT(PIN(iq_cmd), max_cur);
-   
+
    float max_volt = PIN(pwm_volt);
 
    float id = PIN(id_fb);
    float iq = PIN(iq_fb);
-   
+
    float vel = PIN(vel);
    float psi_d = ld * id + PIN(psi);
    float psi_q = lq * iq;

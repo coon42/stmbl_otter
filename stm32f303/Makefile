@@ -27,6 +27,8 @@ SOURCES += stm32f303/src/usbd_conf.c
 SOURCES += stm32f303/src/usbd_desc.c
 SOURCES += stm32f303/src/version.c
 
+#SOURCES += stm32f303/src/stm32f30x_usart.c
+
 SOURCES += stm32f303/src/hal_tbl.c
 
 COMPS += stm32f303/src/comps/hv.c
@@ -34,6 +36,8 @@ COMPS += stm32f303/src/comps/hvdc.c
 COMPS += stm32f303/src/comps/io.c
 COMPS += stm32f303/src/comps/ls.c
 COMPS += stm32f303/src/comps/enc.c
+COMPS += stm32f303/src/comps/uart.c
+
 
 COMPS += shared/comps/sim.c
 COMPS += shared/comps/term.c
@@ -41,6 +45,7 @@ COMPS += shared/comps/curpid.c
 COMPS += shared/comps/svm.c
 COMPS += shared/comps/dq.c
 COMPS += shared/comps/idq.c
+COMPS += shared/comps/uvw.c
 # COMPS += shared/comps/rev.c
 # COMPS += shared/comps/vel.c
 # COMPS += shared/comps/hal_test.c
@@ -56,6 +61,7 @@ SOURCES += shared/crc16.c
 SOURCES += shared/angle.c
 SOURCES += shared/hal.c
 SOURCES += shared/commands.c
+
 #SOURCES += shared/hal_term.c
 
 #USB Driver
@@ -106,7 +112,7 @@ SOURCES += $(HAL_DRV_DIR)/Src/stm32f3xx_hal_rcc_ex.c
 SOURCES += $(HAL_DRV_DIR)/Src/stm32f3xx_hal_tim.c
 SOURCES += $(HAL_DRV_DIR)/Src/stm32f3xx_hal_tim_ex.c
 SOURCES += $(HAL_DRV_DIR)/Src/stm32f3xx_hal_uart.c
-SOURCES += $(HAL_DRV_DIR)/Src/stm32f3xx_hal_uart_ex.c
+#SOURCES += $(HAL_DRV_DIR)/Src/stm32f3xx_hal_uart_ex.c
 
 LDSCRIPT = stm32f303/STM32F303CBTx_FLASH.ld
 
@@ -119,7 +125,7 @@ CPPFLAGS += $(addprefix -I,$(INCDIRS))
 #  -g             generate debugging information
 #  -save-temps    preserve .s and .i-files
 #
-#CPPFLAGS += 
+#CPPFLAGS +=
 # CPPFLAGS += -g
 # CPPFLAGS += -save-temps=obj
 

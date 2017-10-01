@@ -4,37 +4,37 @@
   * Description        : Main program body
   ******************************************************************************
   *
-  * Copyright (c) 2016 STMicroelectronics International N.V. 
+  * Copyright (c) 2016 STMicroelectronics International N.V.
   * All rights reserved.
   *
-  * Redistribution and use in source and binary forms, with or without 
+  * Redistribution and use in source and binary forms, with or without
   * modification, are permitted, provided that the following conditions are met:
   *
-  * 1. Redistribution of source code must retain the above copyright notice, 
+  * 1. Redistribution of source code must retain the above copyright notice,
   *    this list of conditions and the following disclaimer.
   * 2. Redistributions in binary form must reproduce the above copyright notice,
   *    this list of conditions and the following disclaimer in the documentation
   *    and/or other materials provided with the distribution.
-  * 3. Neither the name of STMicroelectronics nor the names of other 
-  *    contributors to this software may be used to endorse or promote products 
+  * 3. Neither the name of STMicroelectronics nor the names of other
+  *    contributors to this software may be used to endorse or promote products
   *    derived from this software without specific written permission.
-  * 4. This software, including modifications and/or derivative works of this 
+  * 4. This software, including modifications and/or derivative works of this
   *    software, must execute solely and exclusively on microcontroller or
   *    microprocessor devices manufactured by or for STMicroelectronics.
-  * 5. Redistribution and use of this software other than as permitted under 
-  *    this license is void and will automatically terminate your rights under 
-  *    this license. 
+  * 5. Redistribution and use of this software other than as permitted under
+  *    this license is void and will automatically terminate your rights under
+  *    this license.
   *
-  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
-  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
-  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS"
+  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT
+  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
   * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
-  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
+  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT
   * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
   * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
-  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
-  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
+  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
   * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
@@ -58,6 +58,7 @@
 #include "common.h"
 #include "commands.h"
 #include "f3hw.h"
+#include "uart_cdc.h"
 
 uint32_t systick_freq;
 CRC_HandleTypeDef hcrc;
@@ -103,14 +104,14 @@ void Error_Handler(void);
 
 
 void TIM8_UP_IRQHandler(){
-   GPIOA->BSRR |= GPIO_PIN_9;
+   //GPIOB->BSRR |= GPIO_PIN_10;
    __HAL_TIM_CLEAR_IT(&htim8, TIM_IT_UPDATE);
    hal_run_rt();
    if(__HAL_TIM_GET_FLAG(&htim8, TIM_IT_UPDATE) == SET){
       hal_stop();
       hal.hal_state = RT_TOO_LONG;
    }
-   GPIOA->BSRR |= GPIO_PIN_9 << 16;
+   //GPIOB->BSRR |= GPIO_PIN_10 << 16;
 }
 
 void bootloader(char * ptr){
@@ -133,7 +134,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  SCB->VTOR = 0x8004000;
+  //SCB->VTOR = 0x8000000;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -149,7 +150,7 @@ int main(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
-  
+
   GPIO_InitTypeDef GPIO_InitStruct;
 
   #ifdef USB_DISCONNECT_PIN
@@ -160,7 +161,9 @@ int main(void)
     HAL_GPIO_Init(USB_DISCONNECT_PORT, &GPIO_InitStruct);
     HAL_GPIO_WritePin(USB_DISCONNECT_PORT, USB_DISCONNECT_PIN, GPIO_PIN_RESET);
   #endif
-  
+
+
+
   MX_TIM8_Init();
   MX_ADC1_Init();
   MX_ADC2_Init();
@@ -172,7 +175,7 @@ int main(void)
   MX_OPAMP3_Init();
   // MX_USART1_UART_Init();
   MX_USB_DEVICE_Init();
-  
+
 #ifdef USB_CONNECT_PIN
   GPIO_InitStruct.Pin = USB_CONNECT_PIN;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -186,6 +189,8 @@ int main(void)
   __HAL_RCC_DMA2_CLK_ENABLE();
   __HAL_RCC_RTC_ENABLE();
 
+
+
   /* USER CODE BEGIN 2 */
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
   HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
@@ -195,27 +200,27 @@ int main(void)
   HAL_OPAMP_SelfCalibrate(&hopamp1);
   HAL_OPAMP_SelfCalibrate(&hopamp2);
   HAL_OPAMP_SelfCalibrate(&hopamp3);
-  
+
   hcrc.Instance = CRC;
   hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
   hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
   hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
   hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
   hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_WORDS;
-  
+
   __HAL_RCC_CRC_CLK_ENABLE();
-  
+
   if (HAL_CRC_Init(&hcrc) != HAL_OK)
   {
     Error_Handler();
   }
-  
+
   //IO pins
-  GPIO_InitStruct.Pin = GPIO_PIN_9 | GPIO_PIN_10;
+  /*GPIO_InitStruct.Pin = GPIO_PIN_9 | GPIO_PIN_10;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);*/
 
      if (HAL_OPAMP_Start(&hopamp1) != HAL_OK){
        Error_Handler();
@@ -230,15 +235,15 @@ int main(void)
   htim8.Instance->CCR1 = 0;
   htim8.Instance->CCR2 = 0;
   htim8.Instance->CCR3 = 0;
-  
+
   HAL_ADC_Start(&hadc1);
   HAL_ADC_Start(&hadc2);
   HAL_ADC_Start(&hadc3);
   HAL_ADC_Start(&hadc4);
+
   if (HAL_TIM_Base_Start_IT(&htim8) != HAL_OK){
  	Error_Handler();
   }
-  TIM8->RCR = 1;//uptate event foo
   if (HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1) != HAL_OK){
 	Error_Handler();
   }
@@ -257,28 +262,41 @@ int main(void)
   if (HAL_TIMEx_PWMN_Start(&htim8, TIM_CHANNEL_3) != HAL_OK){
   	Error_Handler();
   }
+  //TIM8->RCR = 1;//uptate event foo
+  //GPIO_InitTypeDef GPIO_InitStruct;
+  //PB10 messpin
+  /*GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);*/
 
   hal_init(1.0 / 15000.0, 0.0);
   // hal load comps
   load_comp(comp_by_name("term"));
   // load_comp(comp_by_name("sim"));
   load_comp(comp_by_name("io"));
-  load_comp(comp_by_name("ls"));
+  //load_comp(comp_by_name("ls"));
   load_comp(comp_by_name("dq"));
   load_comp(comp_by_name("idq"));
   load_comp(comp_by_name("svm"));
   load_comp(comp_by_name("hv"));
+  load_comp(comp_by_name("uvw"));
   load_comp(comp_by_name("curpid"));
-  
+  load_comp(comp_by_name("uart"));
+
   hal_parse("term0.rt_prio = 0.1");
+  hal_parse("uart0.rt_prio = 0.2");
   hal_parse("ls0.rt_prio = 0.6");
+
   hal_parse("io0.rt_prio = 1.0");
+  hal_parse("uvw0.rt_prio = 1.5");
   hal_parse("dq0.rt_prio = 2.0");
   hal_parse("curpid0.rt_prio = 3.0");
   hal_parse("idq0.rt_prio = 4.0");
   hal_parse("svm0.rt_prio = 5.0");
   hal_parse("hv0.rt_prio = 6.0");
-  
+
   hal_parse("term0.send_step = 100.0");
   hal_parse("term0.gain0 = 10.0");
   hal_parse("term0.gain1 = 10.0");
@@ -288,7 +306,8 @@ int main(void)
   hal_parse("term0.gain5 = 10.0");
   hal_parse("term0.gain6 = 10.0");
   hal_parse("term0.gain7 = 10.0");
-  hal_parse("curpid0.max_cur = 25.0");
+
+  hal_parse("curpid0.max_cur = 100.0");
 
   //link LS
   hal_parse("ls0.mot_temp = io0.mot_temp");
@@ -299,22 +318,22 @@ int main(void)
   hal_parse("idq0.pos = ls0.pos");
   hal_parse("dq0.pos = ls0.pos");
   hal_parse("hv0.en = ls0.en");
-  
+
   //ADC TEST
   hal_parse("term0.wave3 = io0.udc");
   hal_parse("hv0.udc = io0.udc");
   hal_parse("dq0.u = io0.iu");
-  hal_parse("dq0.v = io0.iv");
-  hal_parse("dq0.w = io0.iw");
-  
+  hal_parse("dq0.v = io0.iw");
+  hal_parse("dq0.w = io0.iv");
+
   // hal_parse("sim0.vel", "idq0.pos");
   // hal_parse("sim0.vel", "dq0.pos");
-  
+
   hal_parse("svm0.u = idq0.u");
   hal_parse("svm0.v = idq0.v");
   hal_parse("svm0.w = idq0.w");
   hal_parse("hv0.u = svm0.su");
-  
+
   hal_parse("hv0.v = svm0.sv");
   hal_parse("hv0.w = svm0.sw");
   hal_parse("svm0.udc = io0.udc");
@@ -342,20 +361,29 @@ int main(void)
   hal_parse("curpid0.ki = ls0.cur_i");
   hal_parse("curpid0.ff = ls0.cur_ff");
   hal_parse("curpid0.kind = ls0.cur_ind");
-  hal_parse("curpid0.max_cur = ls0.max_cur");
-  hal_parse("curpid0.pwm_volt = ls0.pwm_volt");
   hal_parse("curpid0.vel = ls0.vel");
 
-  // hal parse config
-  // hal_init_nrt();
-  // error foo
+  hal_parse("uvw0.u = io0.in0");
+  hal_parse("uvw0.v = io0.in1");
+  hal_parse("uvw0.w = io0.in2");
+  hal_parse("dq0.polecount = 1");
+  hal_parse("idq0.polecount = 1");
+  hal_parse("idq0.pos = uvw0.pos");
+  hal_parse("dq0.pos = uvw0.pos");
+  hal_parse("svm0.mode = 1");
+  hal_parse("curpid0.pwm_volt = io0.udc_pwm");
+  hal_parse("curpid0.kp = 0.02");
+  hal_parse("curpid0.ki = 0.005");
+
+  hal_parse("curpid0.iq_cmd = uart0.current");
+  hal_parse("hv0.en = uart0.en");
   hal_start();
-  
+
   while (1)
   {
      hal_run_nrt();
      cdc_poll();
-     HAL_Delay(1);
+     //HAL_Delay(1);
   }
 
 }
@@ -369,7 +397,7 @@ void SystemClock_Config(void)
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
   RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
@@ -384,7 +412,7 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
@@ -413,11 +441,11 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-    /**Configure the Systick interrupt time 
+    /**Configure the Systick interrupt time
     */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-    /**Configure the Systick 
+    /**Configure the Systick
     */
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
@@ -443,11 +471,11 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler */
   /* User can add his own implementation to report the HAL error return state */
-  while(1) 
+  while(1)
   {
 	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
   }
-  /* USER CODE END Error_Handler */ 
+  /* USER CODE END Error_Handler */
 }
 
 #ifdef USE_FULL_ASSERT
@@ -472,10 +500,10 @@ void assert_failed(uint8_t* file, uint32_t line)
 
 /**
   * @}
-  */ 
+  */
 
 /**
   * @}
-*/ 
+*/
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
