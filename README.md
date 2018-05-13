@@ -1,3 +1,31 @@
+How to use with skateboard:
+
+- Compile:
+
+For some reason you need exactly this compiler:
+<code>
+  gcc-arm-none-eabi-5_4-2016q3
+</code>
+
+- on any newer gcc version, the board does not boot after flashing !?
+- Adjust path in TOOLCHAIN variable in toolchain.mak file
+- The board works correctly if the green LED lights up. When receiving data over UART
+  the LED flashes blue.
+
+<code>
+  make -f stm32f303/Makefile
+</code>
+
+- bridge pins for DFU mode while plugging in USB cable
+- flash using the following command:
+
+<code>
+  sudo dfu-util -d 0483:df11 -a 0 -s 0x8000000:leave -D obj_hvf3/hvf3.bin
+</code>
+
+You meight also adjust some stuff in main.c (PID controller params etc.)
+
+
 STMBL is an open source servo drive designed for retrofitting CNC machines and robots. It supports industrial AC and DC servo motors with up to 320V and 1kW.
 
 [![Join the chat at https://gitter.im/rene-dev/stmbl](https://badges.gitter.im/rene-dev/stmbl.svg)](https://gitter.im/rene-dev/stmbl?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) (click to chat with us)
