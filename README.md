@@ -12,12 +12,15 @@ How to use with skateboard:
   make -f stm32f303/Makefile
 </code>
 
+
 - Bridge pins for DFU mode while plugging in USB cable
 - Flash by using the following command:
+
 
 <code>
   sudo dfu-util -d 0483:df11 -a 0 -s 0x8000000:leave -D obj_hvf3/hvf3.bin
 </code>
+
 
 You meight also adjust some stuff in main.c (PID controller params etc.)
 
