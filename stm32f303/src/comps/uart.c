@@ -154,7 +154,7 @@ static void rt_func(float period, volatile void * ctx_ptr, volatile hal_pin_inst
       //if(crc == ctx->ottersequence.crc){
          ledBlue(1);
          ledGreen(0);
-         PIN(current) = ctx->ottersequence.current / 3100.0;
+         PIN(current) = ctx->ottersequence.current / 1000.0;
          PIN(en) = 1.0;
          ctx->timeout = 0;
       //}

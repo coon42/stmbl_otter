@@ -307,7 +307,7 @@ int main(void)
   hal_parse("term0.gain6 = 10.0");
   hal_parse("term0.gain7 = 10.0");
 
-  hal_parse("curpid0.max_cur = 100.0");
+  hal_parse("curpid0.max_cur = 3.0"); // meight be 20A?
 
   //link LS
   hal_parse("ls0.mot_temp = io0.mot_temp");
@@ -372,7 +372,7 @@ int main(void)
   hal_parse("dq0.pos = uvw0.pos");
   hal_parse("svm0.mode = 1");
   hal_parse("curpid0.pwm_volt = io0.udc_pwm");
-  hal_parse("curpid0.kp = 0.02");
+  hal_parse("curpid0.kp = 0.0025");
   hal_parse("curpid0.ki = 0.005");
 
   hal_parse("curpid0.iq_cmd = uart0.current");
